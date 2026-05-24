@@ -1,10 +1,6 @@
 ﻿using BlockChain.Models;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace BlockChain.Service
 {
@@ -12,7 +8,7 @@ namespace BlockChain.Service
     {
         public string ComputeHash(Block block)
         {
-            string rawData = $"{block.Index}{block.Timestamp}{block.Data}{block.PrevHash}";
+            string rawData = $"{block.Index}{block.Timestamp}{block.Data}{block.PrevHash}{block.Author}";
             return ComputeHash(rawData);
         }
 

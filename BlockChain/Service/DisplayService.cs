@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace BlockChain.Service
+﻿namespace BlockChain.Service
 {
     public class DisplayService
     {
@@ -13,6 +7,7 @@ namespace BlockChain.Service
             foreach (var block in chain)
             {
                 Console.WriteLine($"Index: {block.Index}");
+                Console.WriteLine($"Author: {block.Author}");
                 Console.WriteLine($"Timestamp: {block.Timestamp}");
                 Console.WriteLine($"Data: {block.Data}");
                 Console.WriteLine($"Hash: {block.Hash}");
