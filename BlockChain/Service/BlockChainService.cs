@@ -43,17 +43,17 @@ namespace BlockChain.Service
                 var currentBlock = Chain[i];
                 var prevBlock = Chain[i - 1];
 
-                if(i == 2)
+                if (i == 2)
                 {
                     currentBlock.Data = "some trash data^^&$%^^&&^*%*&^";
                 }
 
-                if(i == 3)
+                if (i == 3)
                 {
                     currentBlock.Hash = "354792959250dfgsdufkgsdjfkhbhljkgo94ilkal%^&*(*&^%$#$%^&*(";
                 }
 
-                if(i == 4)
+                if (i == 4)
                 {
                     currentBlock.PrevHash = "834925467925)(*&^%$#@#$^&*(*$%^&*(*%^&*";
                 }
@@ -66,7 +66,7 @@ namespace BlockChain.Service
                 {
                     return $"Error in block №[{i}]: The chain is broken (PreviousHash does not match the hash of the previous block).";
                 }
-                if(!currentBlock.Hash.StartsWith(new String('0', Difficulty)))
+                if (!currentBlock.Hash.StartsWith(new String('0', Difficulty)))
                 {
                     return $"Error in block №[{i}]: The hash does not meet the current difficulty ({Difficulty}).";
                 }
