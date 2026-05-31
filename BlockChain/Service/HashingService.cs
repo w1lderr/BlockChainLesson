@@ -8,7 +8,7 @@ namespace BlockChain.Service
     {
         public string ComputeHash(Block block)
         {
-            string rawData = $"{block.Index}{block.Timestamp}{block.Data}{block.PrevHash}{block.Author}";
+            string rawData = $"{block.Index}{block.Timestamp}{block.Data}{block.PrevHash}{block.Author}{block.Nonce}";
             return ComputeHash(rawData);
         }
 
@@ -17,7 +17,7 @@ namespace BlockChain.Service
             byte[] inputBytes = Encoding.UTF8.GetBytes(rawData);
             byte[] hashBytes = SHA256.HashData(inputBytes);
 
-            return Convert.ToBase64String(hashBytes);
+            return Convert.ToHexString(hashBytes);
         }
     }
 }

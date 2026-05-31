@@ -13,6 +13,7 @@
         // Hash of the current block, which is created on base of the data and other properties
         public string Hash { get; set; }
         public string PrevHash { get; set; }
+        public int Nonce { get; set; }
 
         public Block(int index, string author, string data, string prevHash, DateTime timestamp)
         {
@@ -22,6 +23,7 @@
             Data = data;
             PrevHash = prevHash;
             Hash = "";
+            Nonce++;
         }
 
         public Block()

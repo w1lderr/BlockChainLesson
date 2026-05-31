@@ -6,11 +6,17 @@ namespace BlockChain.Service
     {
         public List<Block> Chain { get; set; }
         private HashingService _hashingService;
-        public BlockChainService()
+        private MiningService _miningService;
+
+        private string Prefix = "c0ffee";
+
+        public BlockChainService(string prefix)
         {
             _hashingService = new HashingService();
+            _miningService = new MiningService(_hashingService);
             Chain = new List<Block>();
             AddGenesisBlock();
+            this.Prefix = prefix;
         }
 
         private void AddGenesisBlock()
@@ -25,6 +31,8 @@ namespace BlockChain.Service
             var lastBlock = Chain.Last();
             var newBLock = new Block(lastBlock.Index + 1, author, data, lastBlock.Hash, DateTime.UtcNow);
             newBLock.Hash = _hashingService.ComputeHash(newBLock);
+
+            _miningService.MineBlock(newBLock, Prefix);
             Chain.Add(newBLock);
         }
 
@@ -39,6 +47,10 @@ namespace BlockChain.Service
                     return false;
                 }
                 if (currentBlock.PrevHash != prevBlock.Hash)
+                {
+                    return false;
+                }
+                if(!currentBlock.Hash.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase))
                 {
                     return false;
                 }
