@@ -8,15 +8,15 @@ namespace BlockChain.Service
         private HashingService _hashingService;
         private MiningService _miningService;
 
-        private string Prefix = "c0ffee";
+        private int Difficulty = 1;
 
-        public BlockChainService(string prefix)
+        public BlockChainService(int difficulty)
         {
             _hashingService = new HashingService();
             _miningService = new MiningService(_hashingService);
             Chain = new List<Block>();
             AddGenesisBlock();
-            this.Prefix = prefix;
+            this.Difficulty = difficulty;
         }
 
         private void AddGenesisBlock()
@@ -32,30 +32,46 @@ namespace BlockChain.Service
             var newBLock = new Block(lastBlock.Index + 1, author, data, lastBlock.Hash, DateTime.UtcNow);
             newBLock.Hash = _hashingService.ComputeHash(newBLock);
 
-            _miningService.MineBlock(newBLock, Prefix);
+            _miningService.MineBlock(newBLock, Difficulty);
             Chain.Add(newBLock);
         }
 
-        public bool IsValid()
+        public string IsValid()
         {
             for (int i = 1; i < Chain.Count; i++)
             {
                 var currentBlock = Chain[i];
                 var prevBlock = Chain[i - 1];
+
+                if(i == 2)
+                {
+                    currentBlock.Data = "some trash data^^&$%^^&&^*%*&^";
+                }
+
+                if(i == 3)
+                {
+                    currentBlock.Hash = "354792959250dfgsdufkgsdjfkhbhljkgo94ilkal%^&*(*&^%$#$%^&*(";
+                }
+
+                if(i == 4)
+                {
+                    currentBlock.PrevHash = "834925467925)(*&^%$#@#$^&*(*$%^&*(*%^&*";
+                }
+
                 if (currentBlock.Hash != _hashingService.ComputeHash(currentBlock))
                 {
-                    return false;
+                    return $"Error in block №[{i}]: The hash does not match the block data (Data/Timestamp/Nonce has been altered).";
                 }
                 if (currentBlock.PrevHash != prevBlock.Hash)
                 {
-                    return false;
+                    return $"Error in block №[{i}]: The chain is broken (PreviousHash does not match the hash of the previous block).";
                 }
-                if(!currentBlock.Hash.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase))
+                if(!currentBlock.Hash.StartsWith(new String('0', Difficulty)))
                 {
-                    return false;
+                    return $"Error in block №[{i}]: The hash does not meet the current difficulty ({Difficulty}).";
                 }
             }
-            return true;
+            return "true";
         }
     }
 }

@@ -16,10 +16,9 @@ namespace BlockChain.Service
             _hashingService = hashingService;
         }
 
-        public long MineBlock(Block block, string prefix)
+        public long MineBlock(Block block, int difficulty)
         {
-
-            var target = prefix.ToLowerInvariant();
+            var target = new String('0', difficulty);
             
             while(true)
             {
