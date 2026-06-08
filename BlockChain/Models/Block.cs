@@ -14,6 +14,7 @@
         public string Hash { get; set; }
         public string PrevHash { get; set; }
         public int Nonce { get; set; }
+        public int DifficultyAtMining { get; set; }
 
         public Block(int index, string author, string data, string prevHash, DateTime timestamp)
         {
