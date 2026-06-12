@@ -13,7 +13,8 @@ namespace BlockChain.Service
 
         public string ComputeHash(Block block, long nonce)
         {
-            string rawData = $"{block.Index}{block.Timestamp}{block.Data}{block.PrevHash}{block.Author}{nonce}";
+            var transactionData = string.Concat(block.Transactions.Select(tx => tx.ToRawString().ToArray()));
+            string rawData = $"{block.Index}{block.Timestamp}{transactionData}{block.PrevHash}{block.Author}{nonce}";
             return ComputeHashString(rawData);
         }
 
@@ -21,7 +22,7 @@ namespace BlockChain.Service
         {
             byte[] inputBytes = Encoding.UTF8.GetBytes(rawData);
             byte[] hashBytes = SHA256.HashData(inputBytes);
-            return Convert.ToHexString(hashBytes);
+            return Convert.ToHexString(hashBytes).Replace("-", "").ToLower();
         }
     }
 }

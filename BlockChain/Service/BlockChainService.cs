@@ -24,14 +24,24 @@ namespace BlockChain.Service
 
         private void AddGenesisBlock()
         {
-            var block = new Block(0, "Satoshi Nakamoto :)", "Genesis Block", "0", DateTime.Parse("2024-06-01T00:00:00Z"));
+            var block = new Block(0, new List<Transaction>(), "0", DateTime.Parse("2024-06-01T00:00:00Z"));
             block.Hash = _hashingService.ComputeHash(block);
             block.DifficultyAtMining = Difficulty;
             Chain.Add(block);
         }
 
-        public void AddBlock(string data, string author)
+        public void AddBlock(List<Transaction> transactions)
         {
+            foreach (var item in transactions)
+            {
+                var isValid = TransactionService.ValidateTransaction(item);
+                if (!isValid.isValid)
+                {
+                    Console.WriteLine($"Invalid transaction: {isValid.error}");
+                    return;
+                }
+            }
+
             if (Chain.Count >= DifficultyAdjustmentInterval &&
                 Chain.Count % DifficultyAdjustmentInterval == 0)
             {
@@ -39,7 +49,7 @@ namespace BlockChain.Service
             }
 
             var lastBlock = Chain.Last();
-            var newBlock = new Block(lastBlock.Index + 1, author, data, lastBlock.Hash, DateTime.UtcNow);
+            var newBlock = new Block(lastBlock.Index + 1, transactions, lastBlock.Hash, DateTime.UtcNow);
 
             newBlock.DifficultyAtMining = Difficulty;
             newBlock.Hash = _hashingService.ComputeHash(newBlock);

@@ -8,7 +8,7 @@
 
         // Date and time of the block creation
         public DateTime Timestamp { get; set; }
-        public string Data { get; set; }
+        public List<Transaction> Transactions { get; set; }
 
         // Hash of the current block, which is created on base of the data and other properties
         public string Hash { get; set; }
@@ -16,20 +16,14 @@
         public int Nonce { get; set; }
         public int DifficultyAtMining { get; set; }
 
-        public Block(int index, string author, string data, string prevHash, DateTime timestamp)
+        public Block(int index, List<Transaction> transactions, string prevHash, DateTime timestamp)
         {
             Index = index;
-            Author = author;
             Timestamp = timestamp;
-            Data = data;
+            Transactions = transactions;
             PrevHash = prevHash;
             Hash = "";
             Nonce++;
-        }
-
-        public Block()
-        {
-
         }
     }
 }
