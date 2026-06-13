@@ -11,9 +11,9 @@ namespace BlockChain.Service
             cryptoService = new CryptoService();
         }
 
-        public static Transaction CreateTransaction(string from, string to, decimal amount, string? privateKey)
+        public static Transaction CreateTransaction(string from, string to, decimal amount, string? privateKey, decimal fee = 0)
         {
-            var tx = new Transaction(from, to, amount);
+            var tx = new Transaction(from, to, amount, fee);
             SignTransaction(tx, privateKey);
             var validation = ValidateTransaction(tx);
 

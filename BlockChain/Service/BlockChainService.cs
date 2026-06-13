@@ -1,5 +1,4 @@
 using BlockChain.Models;
-using System.IO;
 using System.Text.Json;
 
 
@@ -9,6 +8,7 @@ namespace BlockChain.Service
     {
         public List<Block> Chain { get; set; }
         public List<Transaction> PendingTransactions { get; set; } = new List<Transaction>();
+        public decimal NetworkBaseFee { get; set; } = 1.0m;
         private readonly HashingService _hashingService;
         private readonly MiningService _miningService;
         private const int MinDifficulty = 1;
@@ -50,12 +50,16 @@ namespace BlockChain.Service
 
         public Dictionary<string, decimal> BalancesState { get; set; } = new Dictionary<string, decimal>();
 
-        public void AddBlock(string minerAddress = "SYSTEM")
+        public void MinePendingTransactions(string minerAddress = "SYSTEM")
         {
-            var transactions = new List<Transaction>(PendingTransactions);
+            EvictStaleTransactions(60);
+
+            var transactions = PendingTransactions.OrderByDescending(tx => tx.Fee - NetworkBaseFee).ToList();
             PendingTransactions.Clear();
 
-            decimal reward = MiningReward;
+            decimal totalTips = transactions.Where(t => t.From != "SYSTEM").Sum(t => t.Fee - NetworkBaseFee);
+            decimal reward = MiningReward + totalTips;
+
             if (reward > 0)
             {
                 var rewardTx = new Transaction("SYSTEM", minerAddress, reward)
@@ -83,7 +87,19 @@ namespace BlockChain.Service
             UpdateBalancesState(newBlock);
         }
 
-        public void AddTransaction(Transaction tx)
+        public void AddBlock(string minerAddress = "SYSTEM")
+        {
+            MinePendingTransactions(minerAddress);
+        }
+
+        public int EvictStaleTransactions(int maxAgeSeconds)
+        {
+            int initialCount = PendingTransactions.Count;
+            PendingTransactions.RemoveAll(tx => (DateTime.UtcNow - tx.Timestamp).TotalSeconds > maxAgeSeconds);
+            return initialCount - PendingTransactions.Count;
+        }
+
+        public void AddTransactionToMempool(Transaction tx)
         {
             var (isValid, error) = TransactionService.ValidateTransaction(tx);
             if (!isValid)
@@ -91,12 +107,30 @@ namespace BlockChain.Service
                 throw new InvalidOperationException($"Invalid transaction: {error}");
             }
 
-            if (tx.From != "SYSTEM" && GetBalance(tx.From) < tx.Amount)
+            if (tx.From != "SYSTEM")
             {
-                throw new InvalidOperationException("Insufficient funds.");
+                if (tx.Fee < NetworkBaseFee)
+                {
+                    throw new InvalidOperationException("Transaction fee is lower than the network base fee.");
+                }
+
+                if (PendingTransactions.Count(t => t.From == tx.From) >= 3)
+                {
+                    throw new InvalidOperationException("Spam detected.");
+                }
+
+                if (GetBalance(tx.From) < tx.Amount + tx.Fee)
+                {
+                    throw new InvalidOperationException("Insufficient funds.");
+                }
             }
 
             PendingTransactions.Add(tx);
+        }
+
+        public void AddTransaction(Transaction tx)
+        {
+            AddTransactionToMempool(tx);
         }
 
         public decimal GetBalance(string publicKey)
@@ -111,7 +145,7 @@ namespace BlockChain.Service
             {
                 if (tx.From == publicKey)
                 {
-                    balance -= tx.Amount;
+                    balance -= (tx.Amount + tx.Fee);
                 }
                 if (tx.To == publicKey)
                 {
@@ -132,7 +166,7 @@ namespace BlockChain.Service
                 {
                     if (tx.From == publicKey)
                     {
-                        balance -= tx.Amount;
+                        balance -= (tx.Amount + tx.Fee);
                     }
                     if (tx.To == publicKey)
                     {
@@ -145,7 +179,7 @@ namespace BlockChain.Service
             {
                 if (tx.From == publicKey)
                 {
-                    balance -= tx.Amount;
+                    balance -= (tx.Amount + tx.Fee);
                 }
                 if (tx.To == publicKey)
                 {
@@ -163,6 +197,27 @@ namespace BlockChain.Service
                         .Sum(t => t.Amount);
         }
 
+        public decimal GetTotalBurnedFees()
+        {
+            decimal totalBurned = 0;
+            for (int i = 1; i < Chain.Count; i++)
+            {
+                foreach (var tx in Chain[i].Transactions)
+                {
+                    if (tx.From != "SYSTEM")
+                    {
+                        totalBurned += NetworkBaseFee;
+                    }
+                }
+            }
+            return totalBurned;
+        }
+
+        public decimal GetActualTotalSupply()
+        {
+            return GetTotalSupply() - GetTotalBurnedFees();
+        }
+
         public void UpdateBalancesState(Block block)
         {
             foreach (var tx in block.Transactions)
@@ -170,7 +225,7 @@ namespace BlockChain.Service
                 if (tx.From != "SYSTEM")
                 {
                     if (!BalancesState.ContainsKey(tx.From)) BalancesState[tx.From] = 0;
-                    BalancesState[tx.From] -= tx.Amount;
+                    BalancesState[tx.From] -= (tx.Amount + tx.Fee);
                 }
                 if (tx.To != "SYSTEM")
                 {
@@ -187,6 +242,38 @@ namespace BlockChain.Service
             {
                 UpdateBalancesState(block);
             }
+        }
+
+        public bool ValidateAndRebuildState()
+        {
+            BalancesState.Clear();
+            foreach (var block in Chain)
+            {
+                foreach (var tx in block.Transactions)
+                {
+                    if (tx.From != "SYSTEM" && tx.From != "System")
+                    {
+                        if (!BalancesState.ContainsKey(tx.From)) BalancesState[tx.From] = 0;
+                        BalancesState[tx.From] -= (tx.Amount + tx.Fee);
+                        if (BalancesState[tx.From] < 0)
+                        {
+                            BalancesState.Clear();
+                            return false;
+                        }
+                    }
+                    if (tx.To != "SYSTEM" && tx.To != "System")
+                    {
+                        if (!BalancesState.ContainsKey(tx.To)) BalancesState[tx.To] = 0;
+                        BalancesState[tx.To] += tx.Amount;
+                        if (BalancesState[tx.To] < 0)
+                        {
+                            BalancesState.Clear();
+                            return false;
+                        }
+                    }
+                }
+            }
+            return true;
         }
 
         public void SaveStateSnapshot()
