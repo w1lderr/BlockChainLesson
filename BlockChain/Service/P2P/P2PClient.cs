@@ -1,12 +1,6 @@
 using BlockChain.Models;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
 using System.Net.Sockets;
-using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 
 namespace BlockChain.Service.P2P
 {
@@ -16,7 +10,7 @@ namespace BlockChain.Service.P2P
 
         public void Connect(string peerAddress)
         {
-            if(!_peers.Contains(peerAddress))
+            if (!_peers.Contains(peerAddress))
             {
                 _peers.Add(peerAddress);
             }
@@ -28,7 +22,7 @@ namespace BlockChain.Service.P2P
 
             try
             {
-                foreach(var peer in _peers)
+                foreach (var peer in _peers)
                 {
                     var parts = peer.Split(':');
                     var ip = parts[0];

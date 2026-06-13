@@ -1,12 +1,7 @@
 using BlockChain.Models;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 
 namespace BlockChain.Service.P2P
 {
@@ -21,7 +16,7 @@ namespace BlockChain.Service.P2P
             this.p2pClient = p2pClient;
         }
 
-        
+
         public void Start(int port)
         {
             var listener = new TcpListener(IPAddress.Any, port);
@@ -30,7 +25,7 @@ namespace BlockChain.Service.P2P
 
             Task.Run(async () =>
             {
-                while(true)
+                while (true)
                 {
                     var client = await listener.AcceptTcpClientAsync();
                     _ = HandleClientAsync(client);
@@ -47,11 +42,11 @@ namespace BlockChain.Service.P2P
 
                 var jsonLine = await reader.ReadLineAsync();
 
-                if(!string.IsNullOrEmpty(jsonLine))
+                if (!string.IsNullOrEmpty(jsonLine))
                 {
                     var tx = JsonSerializer.Deserialize<Transaction>(jsonLine);
 
-                    if(tx != null && !blockChainService.PendingTransactions.Any(t => t.Id == tx.Id))
+                    if (tx != null && !blockChainService.PendingTransactions.Any(t => t.Id == tx.Id))
                     {
                         blockChainService.AddTransactionToMempool(tx);
                         Console.WriteLine($"[Сервер] Отримано нову транзакцію: {tx.Id}");
@@ -59,8 +54,8 @@ namespace BlockChain.Service.P2P
                         _ = p2pClient.BroadcatTransactionAsync(tx);
                     }
                 }
-            } 
-            catch(Exception ex)
+            }
+            catch (Exception ex)
             {
                 Console.WriteLine($"Error occurred while handling client: {ex.Message}");
             }

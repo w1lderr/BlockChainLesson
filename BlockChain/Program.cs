@@ -2,7 +2,6 @@ using BlockChain.Models;
 using BlockChain.Service;
 using BlockChain.Service.P2P;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.VisualBasic;
 
 var service = new ServiceCollection();
 service.AddSingleton<BlockChainService>(new BlockChainService(difficulty: 1));
@@ -26,7 +25,7 @@ p2pServer.Start(port);
 
 blockChainService.BalancesState[myWallet.PublicKey] = 10000m;
 
-while(true)
+while (true)
 {
     Console.WriteLine("\nMenu:");
     Console.WriteLine("1. Connect to another node");
@@ -36,7 +35,7 @@ while(true)
 
     Console.Write("Your choice: ");
 
-    switch(Console.ReadLine())
+    switch (Console.ReadLine())
     {
         case "1":
             Console.Write("Enter peer address (e.g., 127.0.0.1:6002): ");
@@ -67,7 +66,7 @@ while(true)
                     var tx = TransactionService.CreateTransaction(myWallet.PublicKey, recipient, amount, myWallet.PrivateKey, fee);
                     blockChainService.AddTransaction(tx);
                     Console.WriteLine($"Transaction created and added to mempool: {tx.Id}");
-                    
+
                     Console.WriteLine("[Gossip] Пересилаю транзакцію іншим вузлам...");
                     _ = p2pClient.BroadcatTransactionAsync(tx);
                 }
