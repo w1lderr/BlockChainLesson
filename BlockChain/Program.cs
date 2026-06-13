@@ -1,6 +1,5 @@
 using BlockChain.Models;
 using BlockChain.Service;
-using System.Reflection;
 
 var displayService = new DisplayService();
 var blockChainService = new BlockChainService(1);

@@ -1,9 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace BlockChain.Service
 {
@@ -31,7 +27,7 @@ namespace BlockChain.Service
 
         public bool VerifySignature(string data, byte[] signature, string publicKey)
         {
-            using(var rsa = RSA.Create())
+            using (var rsa = RSA.Create())
             {
                 rsa.ImportRSAPublicKey(Convert.FromBase64String(publicKey), out _);
                 var dataBytes = Encoding.UTF8.GetBytes(data);
