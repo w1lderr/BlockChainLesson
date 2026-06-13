@@ -1,98 +1,99 @@
 using BlockChain.Models;
 using BlockChain.Service;
+using BlockChain.Service.P2P;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.VisualBasic;
 
-var cryptoService = new CryptoService();
-var walletAlice = new Wallet(cryptoService);
-var walletBob = new Wallet(cryptoService);
+var service = new ServiceCollection();
+service.AddSingleton<BlockChainService>(new BlockChainService(difficulty: 1));
+service.AddSingleton<CryptoService, CryptoService>();
+service.AddSingleton<P2PClient, P2PClient>();
+service.AddSingleton<P2PServer, P2PServer>();
 
-Console.WriteLine("==================================================");
-Console.WriteLine("TESTING BLOCKCHAIN PROTECTIVE MECHANISMS");
-Console.WriteLine("==================================================");
+var provider = service.BuildServiceProvider();
 
-// 1. STATE RECOVERY & VALIDATION TEST
-Console.WriteLine("\n--- Scenario 1: State Rebuild and Validation ---");
-var bcs1 = new BlockChainService(1);
+var blockChainService = provider.GetRequiredService<BlockChainService>();
+var p2pServer = provider.GetRequiredService<P2PServer>();
+var p2pClient = provider.GetRequiredService<P2PClient>();
+var cryptoService = provider.GetRequiredService<CryptoService>();
 
-// Seed Alice with 100 coins
-var seedTx = TransactionService.CreateTransaction("SYSTEM", walletAlice.PublicKey, 100, null);
-bcs1.AddTransaction(seedTx);
-bcs1.AddBlock();
+var myWallet = new Wallet(cryptoService);
+Console.WriteLine($"My wallet address: {myWallet.PublicKey}");
+Console.WriteLine("Enter port: ");
+int port = int.Parse(Console.ReadLine() ?? "5001");
 
-// Alice transfers 40 coins to Bob
-var transferTx = TransactionService.CreateTransaction(walletAlice.PublicKey, walletBob.PublicKey, 40, walletAlice.PrivateKey, fee: 1.0m);
-bcs1.AddTransaction(transferTx);
-bcs1.AddBlock();
+p2pServer.Start(port);
 
-Console.WriteLine($"[Before Rebuild] Alice: {bcs1.GetBalance(walletAlice.PublicKey)}, Bob: {bcs1.GetBalance(walletBob.PublicKey)}");
-bool isValid = bcs1.ValidateAndRebuildState();
-Console.WriteLine($"[Rebuild Valid Chain] Status: {isValid}");
-Console.WriteLine($"[After Rebuild] Alice: {bcs1.GetBalance(walletAlice.PublicKey)}, Bob: {bcs1.GetBalance(walletBob.PublicKey)}");
+blockChainService.BalancesState[myWallet.PublicKey] = 10000m;
 
-// Inject invalid block (Alice transfers 1000 coins without funds)
-var invalidTx = new Transaction(walletAlice.PublicKey, walletBob.PublicKey, 1000, fee: 1.0m);
-TransactionService.SignTransaction(invalidTx, walletAlice.PrivateKey);
-
-var lastBlock = bcs1.Chain.Last();
-var invalidBlock = new Block(lastBlock.Index + 1, new List<Transaction> { invalidTx }, lastBlock.Hash, DateTime.UtcNow)
+while(true)
 {
-    Hash = "invalid_hash_bypass_pow",
-    DifficultyAtMining = 1
-};
-bcs1.Chain.Add(invalidBlock);
+    Console.WriteLine("\nMenu:");
+    Console.WriteLine("1. Connect to another node");
+    Console.WriteLine("2. Create a new transaction");
+    Console.WriteLine("3. Show mempool");
+    Console.WriteLine("4. Quit");
 
-Console.WriteLine("\nInjecting invalid block with negative balance transaction...");
-bool isStillValid = bcs1.ValidateAndRebuildState();
-Console.WriteLine($"[Rebuild Invalid Chain] Status: {isStillValid}");
-Console.WriteLine($"BalancesState count after failure (should be 0): {bcs1.BalancesState.Count}");
+    Console.Write("Your choice: ");
 
-
-// 2. MEMPOOL TTL EVICTION TEST
-Console.WriteLine("\n--- Scenario 2: Mempool TTL Eviction ---");
-var bcs2 = new BlockChainService(1);
-
-// Seed Alice
-var seedTx2 = TransactionService.CreateTransaction("SYSTEM", walletAlice.PublicKey, 200, null);
-bcs2.AddTransaction(seedTx2);
-bcs2.AddBlock();
-
-// Add fresh transaction
-var freshTx = TransactionService.CreateTransaction(walletAlice.PublicKey, walletBob.PublicKey, 10, walletAlice.PrivateKey, fee: 1.0m);
-bcs2.AddTransaction(freshTx);
-
-// Add stale transaction manually modifying timestamp
-var staleTx = TransactionService.CreateTransaction(walletAlice.PublicKey, walletBob.PublicKey, 20, walletAlice.PrivateKey, fee: 1.0m);
-staleTx.Timestamp = DateTime.UtcNow.AddSeconds(-75);
-
-bcs2.PendingTransactions.Add(staleTx);
-
-Console.WriteLine($"Pending transactions count before eviction: {bcs2.PendingTransactions.Count}");
-int evicted = bcs2.EvictStaleTransactions(60);
-Console.WriteLine($"Evicted count: {evicted}");
-Console.WriteLine($"Pending transactions count after eviction: {bcs2.PendingTransactions.Count}");
-
-
-// 3. ANTISPAM FILTER TEST
-Console.WriteLine("\n--- Scenario 3: Anti-Spam Filter ---");
-var bcs3 = new BlockChainService(1);
-
-// Seed Alice
-var seedTx3 = TransactionService.CreateTransaction("SYSTEM", walletAlice.PublicKey, 500, null);
-bcs3.AddTransaction(seedTx3);
-bcs3.AddBlock();
-
-try
-{
-    for (int i = 1; i <= 4; i++)
+    switch(Console.ReadLine())
     {
-        Console.WriteLine($"Sending transaction #{i} from Alice...");
-        var tx = TransactionService.CreateTransaction(walletAlice.PublicKey, walletBob.PublicKey, 5, walletAlice.PrivateKey, fee: 1.0m);
-        bcs3.AddTransaction(tx);
+        case "1":
+            Console.Write("Enter peer address (e.g., 127.0.0.1:6002): ");
+            var peerAddress = Console.ReadLine();
+            if (!string.IsNullOrEmpty(peerAddress))
+            {
+                p2pClient.Connect(peerAddress);
+                Console.WriteLine($"Added peer: {peerAddress}");
+            }
+            break;
+
+        case "2":
+            Console.Write("Enter recipient public key (wallet address): ");
+            var recipient = Console.ReadLine();
+            if (string.IsNullOrEmpty(recipient)) break;
+
+            Console.Write("Enter amount: ");
+            if (decimal.TryParse(Console.ReadLine(), out decimal amount))
+            {
+                Console.Write("Enter fee (default 1): ");
+                if (!decimal.TryParse(Console.ReadLine(), out decimal fee))
+                {
+                    fee = 1.0m;
+                }
+
+                try
+                {
+                    var tx = TransactionService.CreateTransaction(myWallet.PublicKey, recipient, amount, myWallet.PrivateKey, fee);
+                    blockChainService.AddTransaction(tx);
+                    Console.WriteLine($"Transaction created and added to mempool: {tx.Id}");
+                    
+                    Console.WriteLine("[Gossip] Пересилаю транзакцію іншим вузлам...");
+                    _ = p2pClient.BroadcatTransactionAsync(tx);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error: {ex.Message}");
+                }
+            }
+            break;
+
+        case "3":
+            Console.WriteLine("\nMempool transactions:");
+            if (blockChainService.PendingTransactions.Count == 0)
+            {
+                Console.WriteLine("(empty)");
+            }
+            else
+            {
+                foreach (var tx in blockChainService.PendingTransactions)
+                {
+                    Console.WriteLine(tx);
+                }
+            }
+            break;
+
+        case "4":
+            return;
     }
 }
-catch (InvalidOperationException ex)
-{
-    Console.WriteLine($"Transaction blocked: {ex.Message}");
-}
-
-Console.WriteLine($"Total transactions in mempool: {bcs3.PendingTransactions.Count}");
-Console.WriteLine("==================================================");
