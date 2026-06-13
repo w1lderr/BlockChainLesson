@@ -1,4 +1,7 @@
 using BlockChain.Models;
+using System.IO;
+using System.Text.Json;
+
 
 namespace BlockChain.Service
 {
@@ -77,19 +80,7 @@ namespace BlockChain.Service
             _miningService.MineBlock(newBlock, Difficulty);
             Chain.Add(newBlock);
 
-            foreach (var tx in transactions)
-            {
-                if (tx.From != "SYSTEM")
-                {
-                    if (!BalancesState.ContainsKey(tx.From)) BalancesState[tx.From] = 0;
-                    BalancesState[tx.From] -= tx.Amount;
-                }
-                if (tx.To != "SYSTEM")
-                {
-                    if (!BalancesState.ContainsKey(tx.To)) BalancesState[tx.To] = 0;
-                    BalancesState[tx.To] += tx.Amount;
-                }
-            }
+            UpdateBalancesState(newBlock);
         }
 
         public void AddTransaction(Transaction tx)
@@ -172,40 +163,49 @@ namespace BlockChain.Service
                         .Sum(t => t.Amount);
         }
 
+        public void UpdateBalancesState(Block block)
+        {
+            foreach (var tx in block.Transactions)
+            {
+                if (tx.From != "SYSTEM")
+                {
+                    if (!BalancesState.ContainsKey(tx.From)) BalancesState[tx.From] = 0;
+                    BalancesState[tx.From] -= tx.Amount;
+                }
+                if (tx.To != "SYSTEM")
+                {
+                    if (!BalancesState.ContainsKey(tx.To)) BalancesState[tx.To] = 0;
+                    BalancesState[tx.To] += tx.Amount;
+                }
+            }
+        }
+
         public void RebuildState()
         {
             BalancesState.Clear();
             foreach (var block in Chain)
             {
-                foreach (var tx in block.Transactions)
-                {
-                    if (tx.From != "SYSTEM")
-                    {
-                        if (!BalancesState.ContainsKey(tx.From)) BalancesState[tx.From] = 0;
-                        BalancesState[tx.From] -= tx.Amount;
-                    }
-                    if (tx.To != "SYSTEM")
-                    {
-                        if (!BalancesState.ContainsKey(tx.To)) BalancesState[tx.To] = 0;
-                        BalancesState[tx.To] += tx.Amount;
-                    }
-                }
+                UpdateBalancesState(block);
             }
         }
 
-        public void SaveSnapshot(string filePath)
+        public void SaveStateSnapshot()
         {
-            var json = System.Text.Json.JsonSerializer.Serialize(BalancesState);
-            System.IO.File.WriteAllText(filePath, json);
+            var json = JsonSerializer.Serialize(BalancesState);
+            File.WriteAllText("state.json", json);
         }
 
-        public void LoadSnapshot(string filePath)
+        public void LoadStateSnapshot()
         {
-            if (System.IO.File.Exists(filePath))
+            if (File.Exists("state.json"))
             {
-                var json = System.IO.File.ReadAllText(filePath);
-                BalancesState = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, decimal>>(json)
+                var json = File.ReadAllText("state.json");
+                BalancesState = JsonSerializer.Deserialize<Dictionary<string, decimal>>(json)
                                 ?? new Dictionary<string, decimal>();
+            }
+            else
+            {
+                RebuildState();
             }
         }
 

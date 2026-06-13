@@ -51,8 +51,7 @@ Console.WriteLine($"Block 6 reward (after 5 blocks): {blockChainService.MiningRe
 Console.WriteLine($"\nTotal Supply: {blockChainService.GetTotalSupply()}");
 
 Console.WriteLine("\n--- Snapshot & Rebuild Demonstration ---");
-string snapshotPath = "balances_snapshot.json";
-blockChainService.SaveSnapshot(snapshotPath);
+blockChainService.SaveStateSnapshot();
 Console.WriteLine("Snapshot saved.");
 
 Console.WriteLine("Clearing state and rebuilding...");
@@ -62,12 +61,12 @@ Console.WriteLine($"Alice balance after rebuild: {blockChainService.GetBalance(w
 blockChainService.BalancesState.Clear();
 Console.WriteLine($"Alice balance after simulated loss: {blockChainService.GetBalance(walletAlice.PublicKey)}");
 
-blockChainService.LoadSnapshot(snapshotPath);
+blockChainService.LoadStateSnapshot();
 Console.WriteLine($"Alice balance after snapshot load: {blockChainService.GetBalance(walletAlice.PublicKey)}");
 
-if (System.IO.File.Exists(snapshotPath))
+if (System.IO.File.Exists("state.json"))
 {
-    System.IO.File.Delete(snapshotPath);
+    System.IO.File.Delete("state.json");
 }
 
 Console.WriteLine("\n--- Running Stress Test (10,000 blocks) ---");
