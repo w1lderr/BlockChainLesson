@@ -5,6 +5,7 @@
         public string Id { get; set; }
         public string From { get; set; }
         public string To { get; set; }
+        public byte[] Signature { get; set; }
         public decimal Amount { get; set; }
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 
