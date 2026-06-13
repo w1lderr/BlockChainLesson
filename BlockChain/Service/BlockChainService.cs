@@ -31,10 +31,36 @@ namespace BlockChain.Service
             Chain.Add(block);
         }
 
-        public void AddBlock()
+        public decimal MiningReward
+        {
+            get
+            {
+                int halvings = Chain.Count / 5;
+                decimal reward = 50m;
+                for (int i = 0; i < halvings; i++)
+                {
+                    reward /= 2;
+                }
+                return reward;
+            }
+        }
+
+        public Dictionary<string, decimal> BalancesState { get; set; } = new Dictionary<string, decimal>();
+
+        public void AddBlock(string minerAddress = "SYSTEM")
         {
             var transactions = new List<Transaction>(PendingTransactions);
             PendingTransactions.Clear();
+
+            decimal reward = MiningReward;
+            if (reward > 0)
+            {
+                var rewardTx = new Transaction("SYSTEM", minerAddress, reward)
+                {
+                    Signature = new byte[] { 0 }
+                };
+                transactions.Insert(0, rewardTx);
+            }
 
             if (Chain.Count >= DifficultyAdjustmentInterval &&
                 Chain.Count % DifficultyAdjustmentInterval == 0)
@@ -50,6 +76,20 @@ namespace BlockChain.Service
 
             _miningService.MineBlock(newBlock, Difficulty);
             Chain.Add(newBlock);
+
+            foreach (var tx in transactions)
+            {
+                if (tx.From != "SYSTEM")
+                {
+                    if (!BalancesState.ContainsKey(tx.From)) BalancesState[tx.From] = 0;
+                    BalancesState[tx.From] -= tx.Amount;
+                }
+                if (tx.To != "SYSTEM")
+                {
+                    if (!BalancesState.ContainsKey(tx.To)) BalancesState[tx.To] = 0;
+                    BalancesState[tx.To] += tx.Amount;
+                }
+            }
         }
 
         public void AddTransaction(Transaction tx)
@@ -69,6 +109,29 @@ namespace BlockChain.Service
         }
 
         public decimal GetBalance(string publicKey)
+        {
+            decimal balance = 0;
+            if (BalancesState.TryGetValue(publicKey, out var b))
+            {
+                balance = b;
+            }
+
+            foreach (var tx in PendingTransactions)
+            {
+                if (tx.From == publicKey)
+                {
+                    balance -= tx.Amount;
+                }
+                if (tx.To == publicKey)
+                {
+                    balance += tx.Amount;
+                }
+            }
+
+            return balance;
+        }
+
+        public decimal GetBalanceLegacy(string publicKey)
         {
             decimal balance = 0;
 
@@ -100,6 +163,50 @@ namespace BlockChain.Service
             }
 
             return balance;
+        }
+
+        public decimal GetTotalSupply()
+        {
+            return Chain.SelectMany(b => b.Transactions)
+                        .Where(t => t.From == "SYSTEM")
+                        .Sum(t => t.Amount);
+        }
+
+        public void RebuildState()
+        {
+            BalancesState.Clear();
+            foreach (var block in Chain)
+            {
+                foreach (var tx in block.Transactions)
+                {
+                    if (tx.From != "SYSTEM")
+                    {
+                        if (!BalancesState.ContainsKey(tx.From)) BalancesState[tx.From] = 0;
+                        BalancesState[tx.From] -= tx.Amount;
+                    }
+                    if (tx.To != "SYSTEM")
+                    {
+                        if (!BalancesState.ContainsKey(tx.To)) BalancesState[tx.To] = 0;
+                        BalancesState[tx.To] += tx.Amount;
+                    }
+                }
+            }
+        }
+
+        public void SaveSnapshot(string filePath)
+        {
+            var json = System.Text.Json.JsonSerializer.Serialize(BalancesState);
+            System.IO.File.WriteAllText(filePath, json);
+        }
+
+        public void LoadSnapshot(string filePath)
+        {
+            if (System.IO.File.Exists(filePath))
+            {
+                var json = System.IO.File.ReadAllText(filePath);
+                BalancesState = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, decimal>>(json)
+                                ?? new Dictionary<string, decimal>();
+            }
         }
 
         private void AdjustDifficulty()
