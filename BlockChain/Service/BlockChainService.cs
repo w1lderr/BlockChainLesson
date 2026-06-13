@@ -1,10 +1,11 @@
-﻿using BlockChain.Models;
+using BlockChain.Models;
 
 namespace BlockChain.Service
 {
     public class BlockChainService
     {
         public List<Block> Chain { get; set; }
+        public List<Transaction> PendingTransactions { get; set; } = new List<Transaction>();
         private readonly HashingService _hashingService;
         private readonly MiningService _miningService;
         private const int MinDifficulty = 1;
@@ -30,17 +31,10 @@ namespace BlockChain.Service
             Chain.Add(block);
         }
 
-        public void AddBlock(List<Transaction> transactions)
+        public void AddBlock()
         {
-            foreach (var item in transactions)
-            {
-                var isValid = TransactionService.ValidateTransaction(item);
-                if (!isValid.isValid)
-                {
-                    Console.WriteLine($"Invalid transaction: {isValid.error}");
-                    return;
-                }
-            }
+            var transactions = new List<Transaction>(PendingTransactions);
+            PendingTransactions.Clear();
 
             if (Chain.Count >= DifficultyAdjustmentInterval &&
                 Chain.Count % DifficultyAdjustmentInterval == 0)
@@ -56,6 +50,56 @@ namespace BlockChain.Service
 
             _miningService.MineBlock(newBlock, Difficulty);
             Chain.Add(newBlock);
+        }
+
+        public void AddTransaction(Transaction tx)
+        {
+            var (isValid, error) = TransactionService.ValidateTransaction(tx);
+            if (!isValid)
+            {
+                throw new InvalidOperationException($"Invalid transaction: {error}");
+            }
+
+            if (tx.From != "SYSTEM" && GetBalance(tx.From) < tx.Amount)
+            {
+                throw new InvalidOperationException("Insufficient funds.");
+            }
+
+            PendingTransactions.Add(tx);
+        }
+
+        public decimal GetBalance(string publicKey)
+        {
+            decimal balance = 0;
+
+            foreach (var block in Chain)
+            {
+                foreach (var tx in block.Transactions)
+                {
+                    if (tx.From == publicKey)
+                    {
+                        balance -= tx.Amount;
+                    }
+                    if (tx.To == publicKey)
+                    {
+                        balance += tx.Amount;
+                    }
+                }
+            }
+
+            foreach (var tx in PendingTransactions)
+            {
+                if (tx.From == publicKey)
+                {
+                    balance -= tx.Amount;
+                }
+                if (tx.To == publicKey)
+                {
+                    balance += tx.Amount;
+                }
+            }
+
+            return balance;
         }
 
         private void AdjustDifficulty()
